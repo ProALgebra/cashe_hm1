@@ -71,7 +71,7 @@ int main() {
         printf("%zu,%.2f\n", sz_kb, avg);
         if( i > 1 && sum_latency[i] / sum_latency[i-1] > 1.5){
         size_t sz_kb = (i) * STEP_KB;
-            std::cout << "cashe size = " << sz_kb << std::endl;
+            std::cout << "cashe size = " << sz_kb << "kb" << std::endl;
             break;
         }
     }
