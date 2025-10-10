@@ -9,14 +9,6 @@ const int RUNS = 100;
 #include <cmath>
 #include <cstdio>
 
-size_t detect_cache_line(const std::vector<size_t>& strides,
-                         const std::vector<double>& cycles,
-                         double threshold = 0.3) {
-    for (size_t i = 1; i < strides.size(); ++i) {
-
-    }
-    return 0; // не найдено
-}
 
 
 int main() {
@@ -40,8 +32,6 @@ int main() {
     }
 
     idx = 0;
-
-    // csv output
 //    printf("stride,Avg cycles/access\n");
     for (size_t stride = 1; stride <= 256; stride <<= 1, ++idx) {
        // printf("%d ", stride);

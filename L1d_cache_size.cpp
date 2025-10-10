@@ -9,8 +9,7 @@
 #include <iostream>
 
 const size_t   STEP_KB = 2;             // 16 KB step
-const size_t   MAX_MB  = 32;             // 64 MB max
-const size_t   MAX_KB  = 128;            // we assume that our L1D cache is no larger than 256 KB
+const size_t   MAX_KB  = 256;            // we assume that our L1D cache is no larger than 256 KB
 const uint64_t ITER    = 10'000'000;
 const size_t   RUNS    = 10;
 
@@ -35,7 +34,6 @@ int main() {
                 return 1;
             }
 
-            // build random cyclic linked list
             std::vector<size_t> idx(n);
             for (size_t i = 0; i < n; ++i) {
                 idx[i] = i;
@@ -50,7 +48,6 @@ int main() {
                 _mm_clflush(&buff[i]);
             }
 
-            // iterating over linked list
             Node *p = &buff[idx[0]];
             uint64_t t0 = rdtscp();
             for (uint64_t it = 0; it < ITER; ++it) {
@@ -66,7 +63,7 @@ int main() {
         }
     }
 
-    // csv output
+
     printf("%s\n", "Size (KB),Avg cycles/access");
     for (size_t i = 0; i < points; ++i) {
         size_t sz_kb = (i + 1) * STEP_KB;

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <random>
 #include "cacheutil.h"
+#include <iostream>
 
 int main(int argc, char** argv) {
     if (argc != 3) {
@@ -16,8 +17,8 @@ int main(int argc, char** argv) {
     size_t max_assoc = std::stoul(argv[2]);
 
     constexpr uint64_t ITER = 10'000'000;
-
-    printf("Assoc,Cycles/(access),Stride\n");
+    double last =0;
+    //printf("Assoc,Cycles/(access),Stride\n");
     for (size_t assoc_guess = 1; assoc_guess <= max_assoc; ++assoc_guess) {
         size_t stride = cache_bytes / assoc_guess;
 
@@ -49,7 +50,6 @@ int main(int argc, char** argv) {
             _mm_clflush(p);
         }
 
-        // iterating over linked list
         Node* p = nodes[0];
         uint64_t t0 = rdtscp();
         for (uint64_t it = 0; it < ITER; ++it) {
@@ -58,7 +58,11 @@ int main(int argc, char** argv) {
         uint64_t t1 = rdtscp();
 
         double cyc = double(t1 - t0) / double(ITER);
-        printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
+        if ( assoc_guess > 1 && cyc/last > 1.6){
+            std::cout << "L1_assoc " << assoc_guess;
+            return 0;
+        }
+        last = cyc;
 
         FREE(mem);
     }
