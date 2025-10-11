@@ -83,7 +83,7 @@ void cache_assoc(){
         if(assoc_guess > 1 &&  1.4 < cyc/last){
             maxi = cyc/last;
             index = assoc_guess;
-            std::cout << "L1D assoc = " << index-1 << std::endl;
+            std::cout << "L1D assoc = " << index << std::endl;
             break;
         }
 
