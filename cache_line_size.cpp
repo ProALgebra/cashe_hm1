@@ -27,8 +27,8 @@
 size_t cache_kb = 48;
 size_t cache_bytes = cache_kb << 10;
 size_t max_assoc = 15;
-const size_t   STEP_KB = 2;             // 16 KB step
-const size_t   MAX_KB  = 256;            // we assume that our L1D cache is no larger than 256 KB
+const size_t   STEP_KB = 2;
+const size_t   MAX_KB  = 256;
 const uint64_t ITER    = 10'000'000;
 const int RUNS = 10;
 
@@ -79,7 +79,7 @@ void cache_assoc(){
         uint64_t t1 = rdtscp();
 
         double cyc = double(t1 - t0) / double(ITER);
-       // printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
+  //     printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
         if(assoc_guess > 1 &&  1.4 < cyc/last){
             maxi = cyc/last;
             index = assoc_guess;
