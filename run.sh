@@ -1,4 +1,4 @@
 #!/bin/sh
-cmake CMakeList.txt
+cmake CMakeLists.txt
 make cache_line_test
 ./cache_line_test
