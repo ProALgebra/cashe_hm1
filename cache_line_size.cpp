@@ -147,7 +147,7 @@ void cache_size(){
     double max_ratio = 0.0;
     size_t detected_kb = 0;
 
-    std::cout << "Size(KB), Avg cycles/access\n";
+    //std::cout << "Size(KB), Avg cycles/access\n";
 
     for (size_t i = 0; i < points; ++i) {
         size_t sz_kb = (i + 1) * STEP_KB;
@@ -205,12 +205,12 @@ void cache_line_size(){
     size_t detected = 0;
     double prev = 0;
     double max_ratio = 0;
-    std::cout << "Stride(bytes), AvgCycles\n";
+  //  std::cout << "Stride(bytes), AvgCycles\n";
     for (size_t stride = 1; stride <= 256; stride <<= 1) {
         double avg = avg_cycles[stride] / RUNS;
-        std::cout << stride * sizeof(int) << "," << avg << "\n";
+     //   std::cout << stride * sizeof(int) << "," << avg << "\n";
         double ratio = avg / prev;
-        std::cout << ratio << ' ';
+    //    std::cout << ratio << ' ';
         if ( stride > 1 && ratio > max_ratio) {
             max_ratio = ratio;
             detected = stride;
