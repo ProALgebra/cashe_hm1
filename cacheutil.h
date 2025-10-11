@@ -17,7 +17,7 @@ static inline uint64_t rdtscp() {
     return __rdtscp(&aux);
 }
 
-struct alignas(CACHE_LINE_SIZE) Node {
+struct Node {
     Node* next;
     char pad[CACHE_LINE_SIZE - sizeof(Node*)];
 };

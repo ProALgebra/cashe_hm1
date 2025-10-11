@@ -8,11 +8,4 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
-
-add_executable(L1D_assoc
-        L1D_assoc.cpp)
-
-add_executable(L1D_cache_size
-        L1d_cache_size.cpp)
-
-add_executable(cache_line_size cache_line_size.cpp)
+add_executable(cache_line_test cache_line_size.cpp)

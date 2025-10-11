@@ -19,6 +19,9 @@ int main(int argc, char** argv) {
     constexpr uint64_t ITER = 10'000'000;
     double last =0;
     //printf("Assoc,Cycles/(access),Stride\n");
+    int maxi = 0;
+    last = 0;
+    int index = 0;
     for (size_t assoc_guess = 1; assoc_guess <= max_assoc; ++assoc_guess) {
         size_t stride = cache_bytes / assoc_guess;
 
@@ -58,13 +61,16 @@ int main(int argc, char** argv) {
         uint64_t t1 = rdtscp();
 
         double cyc = double(t1 - t0) / double(ITER);
-        if ( assoc_guess > 1 && cyc/last > 1.6){
-            std::cout << "L1_assoc " << assoc_guess;
-            return 0;
+        if(assoc_guess > 1 && maxi < cyc/last){
+          maxi = cyc/last;
+          index = assoc_guess;
         }
+        printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
+
         last = cyc;
 
         FREE(mem);
     }
+    std::cout << "L1D assoc = " << index << std::endl;
     return 0;
 }
