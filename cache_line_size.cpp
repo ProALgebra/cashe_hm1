@@ -23,9 +23,12 @@
 #include <vector>
 #include <cmath>
 #include <cstdio>
+#include <bits/stdc++.h>
+#include <x86intrin.h>
 
-size_t cache_kb = 48;
-size_t cache_bytes = cache_kb << 10;
+
+
+size_t cache_kb = 32;
 size_t max_assoc = 15;
 const size_t   STEP_KB = 2;
 const size_t   MAX_KB  = 256;
@@ -34,6 +37,7 @@ const int RUNS = 10;
 
 
 void cache_assoc(){
+    size_t cache_bytes = cache_kb << 10;
     constexpr uint64_t ITER = 10'000'000;
     double last =0;
     //printf("Assoc,Cycles/(access),Stride\n");
@@ -41,15 +45,15 @@ void cache_assoc(){
     last = 0;
     int index = 0;
     for (size_t assoc_guess = 1; assoc_guess <= max_assoc; ++assoc_guess) {
-        size_t stride = cache_bytes / assoc_guess;
+        size_t stride = cache_bytes * assoc_guess;
 
         size_t n = assoc_guess + 1;
 
-        size_t alloc_bytes = stride * n + CACHE_LINE_SIZE;
+        size_t alloc_bytes = stride * n  + CACHE_LINE_SIZE;
         char* mem = (char*) ALLOC(alloc_bytes);
         if (!mem) {
             perror("malloc");
-            return;
+            exit(1);
         }
 
         auto addr = reinterpret_cast<uintptr_t>(mem);
@@ -67,11 +71,12 @@ void cache_assoc(){
             nodes[i]->next = nodes[(i + 1) % n];
         }
 
-        for (auto p : nodes) {
-            _mm_clflush(p);
+        Node* p = nodes[0];
+        for (uint64_t it = 0; it < ITER; ++it) {
+            p = p->next;
         }
 
-        Node* p = nodes[0];
+        // iterating over linked list
         uint64_t t0 = rdtscp();
         for (uint64_t it = 0; it < ITER; ++it) {
             p = p->next;
@@ -177,7 +182,7 @@ void cache_size(){
 }
 
 void cache_line_size(){
-    const size_t N = 1 << 30; // 8M ints (~32MB)
+    const size_t N = 1 << 29; // 8M ints (~32MB)
     std::vector<int> a(N, 0);
     const size_t RUNS = 20;
 
