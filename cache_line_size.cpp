@@ -127,10 +127,7 @@ void cache_size(){
                 buff[idx[i]].next = &buff[idx[(i + 1) % n]];
             }
 
-            // flushing cache lines
-            for (size_t i = 0; i < n; ++i) {
-                _mm_clflush(&buff[i]);
-            }
+
 
             Node *p = &buff[idx[0]];
             uint64_t t0 = rdtscp();
@@ -174,7 +171,7 @@ void cache_size(){
     }
 
     if (detected_kb > 0) {
-        std::cout << "Estimated cache size ≈ " << detected_kb << " KB" << std::endl;
+        std::cout << "Estimated cache size = " << detected_kb << " KB" << std::endl;
         cache_kb = detected_kb;
     } else {
         std::cout << "Cache size not detected reliably.\n";
@@ -195,7 +192,7 @@ void cache_line_size(){
             uint64_t t0 = __rdtscp(&aux);
             _mm_lfence();
 
-            volatile int *pa = a.data();
+            int *pa = a.data();
             for (size_t i = 0; i < N; i += stride)
                 pa[i]++;
 
@@ -224,7 +221,7 @@ void cache_line_size(){
         prev = avg;
     }
 
-    std::cout << "Estimated cache line size ≈ "
+    std::cout << "Estimated cache line size = "
           << detected * sizeof(int) << " bytes\n";
 }
 
