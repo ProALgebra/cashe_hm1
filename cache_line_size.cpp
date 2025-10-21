@@ -50,7 +50,7 @@ void cache_assoc(){
     last = 0;
     int index = 0;
     for (size_t assoc_guess = 1; assoc_guess <= max_assoc; ++assoc_guess) {
-        size_t stride = cache_bytes * assoc_guess;
+        size_t stride = cache_bytes ;
 
         size_t n = assoc_guess + 1;
 
@@ -89,8 +89,8 @@ void cache_assoc(){
         uint64_t t1 = rdtscp();
 
         double cyc = double(t1 - t0) / double(ITER);
-  //     printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
-        if(assoc_guess > 1 &&  1.4 < cyc/last){
+       printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
+        if(assoc_guess > 1 &&  1.8 < cyc/last){
             maxi = cyc/last;
             index = assoc_guess;
             std::cout << "L1D assoc = " << index << std::endl;
@@ -186,114 +186,88 @@ void cache_size(){
     }
 }
 
-
-
-static inline uint64_t rdtsc_serialized() {
-    unsigned aux;
-    _mm_lfence();
-    uint64_t t = __rdtscp(&aux);
-    _mm_lfence();
-    return t;
-}
-
-static inline void build_cycle(void **buf, size_t buf_bytes, size_t line_size) {
-    // stride = 3/2 * line_size
-    size_t stride = (3 * line_size) / 2;
-    size_t nodes = buf_bytes / stride;
-    char *base = (char*)buf;
-
-    for (size_t i = 0; i < nodes; ++i) {
-        size_t next = (i + 1) % nodes;
-        void *node = base + i * stride;       // последовательное размещение
-        void *nextnode = base + next * stride;
-        *(void**)node = nextnode;
-    }
-}
-
-
-
-static inline const void* chase(const void *start, size_t COUNT) {
-    const void *p = start;
-    for (size_t i = 0; i < COUNT; ++i)
-        p = *(const void**)p;
-    return p;
-}
-
 size_t cache_line_size() {
-    const size_t PAGE = 4096;
-    const size_t BUF_BYTES = 256ull * 1024 * 1024; // 8 MiB
-    void *raw = nullptr;
-    if (posix_memalign(&raw, PAGE, BUF_BYTES) != 0) {
-        perror("posix_memalign");
-        return 0;
-    }
-    void **buf = (void**)raw;
+    const size_t min_stride = sizeof(void*);
+    const size_t max_stride = 512;
+    const int runs = 5;
 
-    const unsigned RUNS = 10;
-    const size_t COUNT = 2'000'000;
+    size_t working_kb = cache_kb ? cache_kb : 32;
+    size_t working_bytes = std::max<size_t>(working_kb << 10, max_stride * 8);
 
-    std::vector<size_t> strides;
-    for (size_t s = sizeof(void*); s <= 1024; s <<= 1) strides.push_back(s);
-
-    std::unordered_map<size_t, double> avg_cycles;
-    for (size_t s : strides) avg_cycles[s] = 0.0;
-
-    for (unsigned run = 0; run < RUNS; ++run) {
-        for (size_t stride : strides) {
-            if (stride < sizeof(void*)) continue;
-            if (BUF_BYTES % stride != 0) continue;
-
-            build_cycle(buf, BUF_BYTES, stride);
-            chase(buf, 10000); // warmup
-
-            uint64_t t0 = rdtsc_serialized();
-            const void* p = chase(buf, COUNT);
-            uint64_t t1 = rdtsc_serialized();
-
-            volatile const void* sink = p;
-            (void)sink;
-
-            double cycles = double(t1 - t0) / double(COUNT);
-            avg_cycles[stride] += cycles;
-        }
-    }
-
-    for (size_t s : strides) avg_cycles[s] /= RUNS;
-    /*
-    printf("Stride(bytes), AvgCyclesPerHop\n");
-    for (size_t s : strides)
-        printf("%zu, %.3f\n", s, avg_cycles[s]);
-    */
-    size_t detected_stride = 0;
+    double prev_avg = 0.0;
     double max_ratio = 0.0;
-    double prev = avg_cycles[strides.front()];
-    for (size_t i = 1; i < strides.size(); ++i) {
-        double cur = avg_cycles[strides[i]];
-        double ratio = cur / prev;
-        if (ratio > max_ratio) {
-            max_ratio = ratio;
-            detected_stride = strides[i];
+    size_t detected = 0;
+
+    for (size_t stride = min_stride; stride <= max_stride; stride <<= 1) {
+        double sum_cycles = 0.0;
+        size_t align = std::max<size_t>(stride, alignof(void*));
+        size_t n = working_bytes / stride;
+        if (n < 2) {
+            n = 2;
         }
-        prev = cur;
+
+        size_t alloc_size = n * stride + align;
+
+        for (int run = 0; run < runs; ++run) {
+            char* raw = reinterpret_cast<char*>(ALLOC(alloc_size));
+            if (!raw) {
+                perror("malloc");
+                return 0;
+            }
+
+            uintptr_t addr = reinterpret_cast<uintptr_t>(raw);
+            uintptr_t aligned_addr = (addr + (align - 1)) & ~uintptr_t(align - 1);
+            char* base = reinterpret_cast<char*>(aligned_addr);
+
+            for (size_t i = 0; i < n; ++i) {
+                char* cur = base + i * stride;
+                char* next = base + ((i + 1) % n) * stride;
+                *reinterpret_cast<char**>(cur) = next;
+            }
+
+            char* p = base;
+            for (uint64_t it = 0; it < ITER / 10; ++it) {
+                p = *reinterpret_cast<char**>(p);
+            }
+
+            uint64_t t0 = rdtscp();
+            for (uint64_t it = 0; it < ITER; ++it) {
+                p = *reinterpret_cast<char**>(p);
+            }
+            uint64_t t1 = rdtscp();
+
+            sum_cycles += double(t1 - t0) / double(ITER);
+
+            FREE(raw);
+        }
+
+        double avg = sum_cycles / runs;
+
+        if (prev_avg > 0.0) {
+            double ratio = avg / prev_avg;
+            if (ratio > max_ratio && ratio > 1.3) {
+                max_ratio = ratio;
+                detected = stride;
+            }
+        }
+
+        prev_avg = avg;
     }
-/*
-    if (detected_stride)
-        printf("Estimated cache line size = %zu bytes (ratio %.2f)\n",
-               detected_stride, max_ratio);
-    else
-        printf("No clear cacheline step detected.\n");
-*/
-    free(raw);
-    return detected_stride;
+
+    if (detected == 0) {
+        detected = CACHE_LINE_SIZE;
+    }
+
+    return detected;
 }
 
 int main() {
-    size_t line = cache_line_size();
-    printf(" cache line size = %zu bytes\n", line);
     cache_size();
     cache_assoc();
+    size_t line = cache_line_size();
+    printf(" cache line size = %zu bytes\n", line);
+
     return 0;
 }
-
 
 
