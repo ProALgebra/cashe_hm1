@@ -181,12 +181,6 @@ void cache_size(){
     }
 }
 
-#include <bits/stdc++.h>
-#include <immintrin.h>
-#include <x86intrin.h>
-#include <cstdlib>
-#include <cstdio>
-
 static inline uint64_t rdtsc_serialized() {
     unsigned aux;
     _mm_lfence();
