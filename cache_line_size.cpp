@@ -1,6 +1,11 @@
 #include <cstdio>
 #include <cstdint>
 #include <x86intrin.h>
+#include <bits/stdc++.h>
+#include <immintrin.h>
+#include <x86intrin.h>
+#include <cstdlib>
+#include <cstdio>
 #include <vector>
 #include <iostream>
 #include <cstdio>
@@ -181,6 +186,8 @@ void cache_size(){
     }
 }
 
+
+
 static inline uint64_t rdtsc_serialized() {
     unsigned aux;
     _mm_lfence();
@@ -189,22 +196,21 @@ static inline uint64_t rdtsc_serialized() {
     return t;
 }
 
-static inline void build_cycle(void **buf, size_t buf_bytes, size_t stride) {
+static inline void build_cycle(void **buf, size_t buf_bytes, size_t line_size) {
+    // stride = 3/2 * line_size
+    size_t stride = (3 * line_size) / 2;
     size_t nodes = buf_bytes / stride;
     char *base = (char*)buf;
 
-    // Generate index array
-    std::vector<size_t> idx(nodes);
-    std::iota(idx.begin(), idx.end(), 0);
-    std::shuffle(idx.begin(), idx.end(), std::mt19937(12345));
-
     for (size_t i = 0; i < nodes; ++i) {
         size_t next = (i + 1) % nodes;
-        void *node = base + idx[i] * stride;
-        void *nextnode = base + idx[next] * stride;
+        void *node = base + i * stride;       // последовательное размещение
+        void *nextnode = base + next * stride;
         *(void**)node = nextnode;
     }
 }
+
+
 
 static inline const void* chase(const void *start, size_t COUNT) {
     const void *p = start;
@@ -215,7 +221,7 @@ static inline const void* chase(const void *start, size_t COUNT) {
 
 size_t cache_line_size() {
     const size_t PAGE = 4096;
-    const size_t BUF_BYTES = 8ull * 1024 * 1024; // 8 MiB
+    const size_t BUF_BYTES = 256ull * 1024 * 1024; // 8 MiB
     void *raw = nullptr;
     if (posix_memalign(&raw, PAGE, BUF_BYTES) != 0) {
         perror("posix_memalign");
@@ -253,11 +259,11 @@ size_t cache_line_size() {
     }
 
     for (size_t s : strides) avg_cycles[s] /= RUNS;
-
-    /*printf("Stride(bytes), AvgCyclesPerHop\n");
+    /*
+    printf("Stride(bytes), AvgCyclesPerHop\n");
     for (size_t s : strides)
         printf("%zu, %.3f\n", s, avg_cycles[s]);
-*/
+    */
     size_t detected_stride = 0;
     double max_ratio = 0.0;
     double prev = avg_cycles[strides.front()];
@@ -270,8 +276,8 @@ size_t cache_line_size() {
         }
         prev = cur;
     }
-
-  /*  if (detected_stride)
+/*
+    if (detected_stride)
         printf("Estimated cache line size = %zu bytes (ratio %.2f)\n",
                detected_stride, max_ratio);
     else
@@ -283,9 +289,11 @@ size_t cache_line_size() {
 
 int main() {
     size_t line = cache_line_size();
-    printf("cache line size = %zu bytes\n", line);
+    printf(" cache line size = %zu bytes\n", line);
     cache_size();
     cache_assoc();
     return 0;
 }
+
+
 
