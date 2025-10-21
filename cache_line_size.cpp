@@ -298,12 +298,12 @@ size_t cache_line_size() {
         prev = cur;
     }
 
-    if (detected_stride)
+  /*  if (detected_stride)
         printf("Estimated cache line size = %zu bytes (ratio %.2f)\n",
                detected_stride, max_ratio);
     else
         printf("No clear cacheline step detected.\n");
-
+*/
     free(raw);
     return detected_stride;
 }
