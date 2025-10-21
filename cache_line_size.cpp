@@ -196,40 +196,19 @@ static inline uint64_t rdtsc_serialized() {
 }
 
 static inline void build_cycle(void **buf, size_t buf_bytes, size_t stride) {
-
     size_t nodes = buf_bytes / stride;
     char *base = (char*)buf;
-    if (nodes == 0) {
-        return;
-    }
-    if (nodes == 1) {
-        *(void**)base = base;
-        return;
-    }
 
-    auto next_rand = [](uint64_t &state) {
-        state += 0x9e3779b97f4a7c15ull;
-        uint64_t z = state;
-        z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ull;
-        z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
-        return z ^ (z >> 31);
-    };
-
-    uint64_t seed = rdtsc_serialized() ^ (uint64_t(nodes) << 32) ^ stride;
-    std::vector<size_t> order(nodes);
-    for (size_t i = 0; i < nodes; ++i) {
-        order[i] = i;
-    }
-
-    for (size_t i = nodes - 1; i > 0; --i) {
-        size_t j = next_rand(seed) % (i + 1);
-        std::swap(order[i], order[j]);
-    }
+    // Generate index array
+    std::vector<size_t> idx(nodes);
+    std::iota(idx.begin(), idx.end(), 0);
+    std::shuffle(idx.begin(), idx.end(), std::mt19937(12345));
 
     for (size_t i = 0; i < nodes; ++i) {
-        char *node = base + order[i] * stride;
-        char *next = base + order[(i + 1) % nodes] * stride;
-        *(void**)node = (void*)next;
+        size_t next = (i + 1) % nodes;
+        void *node = base + idx[i] * stride;
+        void *nextnode = base + idx[next] * stride;
+        *(void**)node = nextnode;
     }
 }
 
@@ -242,7 +221,7 @@ static inline const void* chase(const void *start, size_t COUNT) {
 
 size_t cache_line_size() {
     const size_t PAGE = 4096;
-    const size_t BUF_BYTES = 16ull * 1024 * 1024; // 8 MiB
+    const size_t BUF_BYTES = 8ull * 1024 * 1024; // 8 MiB
     void *raw = nullptr;
     if (posix_memalign(&raw, PAGE, BUF_BYTES) != 0) {
         perror("posix_memalign");
