@@ -30,7 +30,12 @@
 #include <cstdio>
 #include <bits/stdc++.h>
 #include <x86intrin.h>
-
+#include <cstdlib>
+#include <thread>
+#include <atomic>
+#include <iostream>
+#include <chrono>
+#include <unistd.h>
 
 
 size_t cache_kb = 48;
@@ -169,7 +174,6 @@ void cache_size(){
         if (i > 0 && prev_avg > 0) {
             double ratio = avg / prev_avg;
 
-            // ищем самый сильный скачок в латентности
             if (ratio > max_ratio && ratio > 1.3) {
                 max_ratio = ratio;
                 detected_kb = (i) * STEP_KB;
@@ -186,79 +190,60 @@ void cache_size(){
     }
 }
 
+
+
+using namespace std::chrono;
+
+constexpr int iterations = 50'000'000;
+
+void stress(std::atomic<int>* a) {
+    for (int i = 0; i < iterations; ++i)
+        a->fetch_add(1, std::memory_order_relaxed);
+}
+
 size_t cache_line_size() {
-    const size_t min_stride = sizeof(void*);
-    const size_t max_stride = 512;
-    const int runs = 5;
+    const size_t max_test = 1024;
+    const size_t alignment = 1024;
 
-    size_t working_kb = cache_kb ? cache_kb : 32;
-    size_t working_bytes = std::max<size_t>(working_kb << 10, max_stride * 8);
-
-    double prev_avg = 0.0;
-    double max_ratio = 0.0;
-    size_t detected = 0;
-
-    for (size_t stride = min_stride; stride <= max_stride; stride <<= 1) {
-        double sum_cycles = 0.0;
-        size_t align = std::max<size_t>(stride, alignof(void*));
-        size_t n = working_bytes / stride;
-        if (n < 2) {
-            n = 2;
-        }
-
-        size_t alloc_size = n * stride + align;
-
-        for (int run = 0; run < runs; ++run) {
-            char* raw = reinterpret_cast<char*>(ALLOC(alloc_size));
-            if (!raw) {
-                perror("malloc");
-                return 0;
-            }
-
-            uintptr_t addr = reinterpret_cast<uintptr_t>(raw);
-            uintptr_t aligned_addr = (addr + (align - 1)) & ~uintptr_t(align - 1);
-            char* base = reinterpret_cast<char*>(aligned_addr);
-
-            for (size_t i = 0; i < n; ++i) {
-                char* cur = base + i * stride;
-                char* next = base + ((i + 1) % n) * stride;
-                *reinterpret_cast<char**>(cur) = next;
-            }
-
-            char* p = base;
-            for (uint64_t it = 0; it < ITER / 10; ++it) {
-                p = *reinterpret_cast<char**>(p);
-            }
-
-            uint64_t t0 = rdtscp();
-            for (uint64_t it = 0; it < ITER; ++it) {
-                p = *reinterpret_cast<char**>(p);
-            }
-            uint64_t t1 = rdtscp();
-
-            sum_cycles += double(t1 - t0) / double(ITER);
-
-            FREE(raw);
-        }
-
-        double avg = sum_cycles / runs;
-
-        if (prev_avg > 0.0) {
-            double ratio = avg / prev_avg;
-            if (ratio > max_ratio && ratio > 1.3) {
-                max_ratio = ratio;
-                detected = stride;
-            }
-        }
-
-        prev_avg = avg;
+    void* ptr = nullptr;
+    if (posix_memalign(&ptr, alignment, max_test + sizeof(std::atomic<int>) * 2) != 0) {
+        perror("posix_memalign failed");
+        return 0;
     }
 
-    if (detected == 0) {
-        detected = CACHE_LINE_SIZE;
+    char* buffer = static_cast<char*>(ptr);
+
+    size_t best_line = 0;
+    double prev_time = 0;
+    bool found = false;
+
+    for (size_t offset = sizeof(std::atomic<int>); offset < max_test; offset *= 2) {
+        std::atomic<int>* a1 = reinterpret_cast<std::atomic<int>*>(buffer);
+        std::atomic<int>* a2 = reinterpret_cast<std::atomic<int>*>(buffer + offset);
+
+        a1->store(0, std::memory_order_relaxed);
+        a2->store(0, std::memory_order_relaxed);
+
+        auto t0 = high_resolution_clock::now();
+        std::thread t1(stress, a1);
+        std::thread t2(stress, a2);
+        t1.join();
+        t2.join();
+        auto t1_end = high_resolution_clock::now();
+
+        double time_ms = duration<double, std::milli>(t1_end - t0).count();
+
+        if (prev_time > 0 && time_ms < prev_time * 0.7 && !found) {
+            best_line = offset;
+            found = true;
+        }
+
+        prev_time = time_ms;
+      //  std::cout << "offset = " << offset << " bytes, time = " << time_ms << " ms\n";
     }
 
-    return detected;
+    free(ptr);
+    return found ? best_line : 64;
 }
 
 int main() {
