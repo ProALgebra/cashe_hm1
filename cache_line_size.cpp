@@ -89,8 +89,8 @@ void cache_assoc(){
         uint64_t t1 = rdtscp();
 
         double cyc = double(t1 - t0) / double(ITER);
-       printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
-        if(assoc_guess > 1 &&  1.8 < cyc/last){
+     //  printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
+        if(assoc_guess > 1 &&  1.7 < cyc/last){
             maxi = cyc/last;
             index = assoc_guess;
             std::cout << "L1D assoc = " << index << std::endl;
@@ -179,7 +179,7 @@ void cache_size(){
     }
 
     if (detected_kb > 0) {
-        std::cout << "Estimated cache size = " << detected_kb << " KB" << std::endl;
+        std::cout << "Cache size = " << detected_kb << " KB" << std::endl;
         cache_kb = detected_kb;
     } else {
         std::cout << "Cache size not detected reliably.\n";
@@ -266,7 +266,6 @@ int main() {
     cache_assoc();
     size_t line = cache_line_size();
     printf(" cache line size = %zu bytes\n", line);
-
     return 0;
 }
 
