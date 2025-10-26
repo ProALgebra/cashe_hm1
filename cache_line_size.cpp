@@ -94,18 +94,18 @@ void cache_assoc(){
         uint64_t t1 = rdtscp();
 
         double cyc = double(t1 - t0) / double(ITER);
-     //  printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
-        if(assoc_guess > 1 &&  1.7 < cyc/last){
+        printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
+        if(assoc_guess > 1 &&  maxi < cyc/last){
             maxi = cyc/last;
             index = assoc_guess;
-            std::cout << "L1D assoc = " << index << std::endl;
-            break;
+
         }
 
         last = cyc;
 
         FREE(mem);
     }
+    std::cout << "L1D assoc = " << index << std::endl;
 }
 
 void cache_size(){
