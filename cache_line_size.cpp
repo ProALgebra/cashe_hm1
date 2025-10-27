@@ -38,9 +38,8 @@
 #include <unistd.h>
 
 
-size_t cache_kb = 48;
-size_t cache_bytes = cache_kb << 10;
-size_t max_assoc = 15;
+size_t cache_kb = 30;
+size_t max_assoc = 30;
 const size_t   STEP_KB = 2;
 const size_t   MAX_KB  = 256;
 const uint64_t ITER    = 10'000'000;
@@ -50,6 +49,8 @@ const int RUNS = 10;
 void cache_assoc(){
     constexpr uint64_t ITER = 10'000'000;
     double last =0;
+    std::cout << "Cache size = " << cache_kb << " KB" << std::endl;
+    size_t cache_bytes = cache_kb << 10;
     //printf("Assoc,Cycles/(access),Stride\n");
     int maxi = 0;
     last = 0;
@@ -92,20 +93,24 @@ void cache_assoc(){
             p = p->next;
         }
         uint64_t t1 = rdtscp();
-
+        FILE* null_file = fopen("/dev/null", "w");
+        if (null_file != NULL) {
+            fprintf(null_file, "%p", (void*)p);
+            fclose(null_file);
+        }
         double cyc = double(t1 - t0) / double(ITER);
         printf("%4zu,%.2f,%6zu\n", assoc_guess, cyc, stride);
-        if(assoc_guess > 1 &&  maxi < cyc/last){
+        if(assoc_guess > 1 &&  1.4 < cyc/last){
             maxi = cyc/last;
             index = assoc_guess;
-
+            std::cout << "L1D assoc = " << index << std::endl;
+            break;
         }
 
         last = cyc;
 
         FREE(mem);
     }
-    std::cout << "L1D assoc = " << index << std::endl;
 }
 
 void cache_size(){
@@ -149,7 +154,11 @@ void cache_size(){
             }
 
             uint64_t t1 = rdtscp();
-
+            FILE* null_file = fopen("/dev/null", "w");
+            if (null_file != NULL) {
+                fprintf(null_file, "%p", (void*)p);
+                fclose(null_file);
+            }
             double cyc = double(t1 - t0) / double(ITER);
             sum_latency[sz_kb / STEP_KB - 1] += cyc;
 
